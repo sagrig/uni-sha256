@@ -1,7 +1,9 @@
 *
 
 !\.gitignore
+!common
 !makefile
+
 
 !*.c
 !*.h
