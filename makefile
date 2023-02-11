@@ -3,6 +3,8 @@ bin		:= usha256
 src		:=
 src		+= main.c
 
+dep		:= ${bin:=.d}
+
 CC		:= clang
 
 CPPFLAGS	:=
@@ -30,5 +32,5 @@ all: $(bin)
 $(bin): $(src)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
-clean: $(bin)
-	@rm -f $^
+clean:
+	@rm -f $(bin) $(dep)
