@@ -29,3 +29,6 @@ all: $(bin)
 
 $(bin): $(src)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $@
+
+clean: $(bin)
+	@rm -f $^
