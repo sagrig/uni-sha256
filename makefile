@@ -3,7 +3,9 @@ bin		:= usha256
 src		:=
 src		+= main.c
 
-dep		:= ${bin:=.d}
+obj		:= ${src:.c=.o}
+
+dep		:= $(wildcard *.d)
 
 CC		:= clang
 
@@ -30,9 +32,14 @@ LDFLAGS		+= -Wl,--build-id=0x$(shell git rev-parse HEAD)
 all: $(bin)
 	@:
 
-$(bin): $(src)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $@
+$(bin): $(obj)
+	$(CC) $(LDFLAGS) $^ -o $@
+
+%.o: %.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 .PHONY: clean
 clean:
-	@rm -f $(bin) $(dep)
+	@rm -f *.o *.d $(bin)
+
+-include *.d
