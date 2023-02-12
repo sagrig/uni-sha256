@@ -21,6 +21,7 @@ CFLAGS		+= -Wextra
 CFLAGS		+= -Wundef
 
 CFLAGS		+= -I .
+CFLAGS		+= -I ./common
 
 LDFLAGS		+=
 LDFLAGS		+= -L .
@@ -32,5 +33,6 @@ all: $(bin)
 $(bin): $(src)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
+.PHONY: clean
 clean:
 	@rm -f $(bin) $(dep)
