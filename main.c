@@ -1,72 +1,88 @@
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#define _GNU_SOURCE
 
+#include <errno.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "eror_hand.h"
+#include "sha2bits.h"
 #include "unisha256.h"
 
 static struct usha_ctx ushactx = {0};
+static uint16_t errl = 0;
 
 static void prnt_bits(const void *txt, const uint64_t size)
 {
+     unsigned char *byte = (unsigned char *)txt;
      for (uint64_t i = 0; i < size; ++i) {
 	  if (0 == (i % 4))
 	       printf("\n");
 	  for (uint8_t j = 8; j > 0; --j) {
-	       printf("%d", 1 & *((char *)txt + i) >> (j - 1));
+	       printf("%d", 1 & (byte[i] >> (j - 1)));
 	  }
 	  printf(" ");
      }
      printf("\n");
 }
 
-static void conv_blks(struct usha_ctx *ctx, const char *txt, const uint64_t size)
+static void chnk_size(struct usha_ctx *ctx, const uint64_t size)
 {
-     /* total number of bytes
+     /*
+      * total number of bytes
       * we add +1 to the size because of the
       * additional 1 bit from the algorithm
       */
-     uint64_t bnum = size;
+     ctx->ctx_clen = size;
 
-     /* following the equation:
+     /*
+      * following the equation:
       * L + 1 + K = 448 mod 512
       */
-     uint64_t calc = bnum + 8;
+     uint64_t calc = ctx->ctx_clen + 8;
      calc %= 64;
      calc  = !!calc?
 	  (64 - calc):
 	  0;
-     bnum += calc;
-     bnum /= 56;
-
-     ctx->ctx_blen = sizeof(struct sha2_blck) * bnum;
+     ctx->ctx_clen += calc;
+     ctx->ctx_clen /= 56;
 }
 
-static void init_blks(struct usha_ctx *ctx, const char *txt, const uint64_t size)
+static bool chnk_init(struct usha_ctx *ctx, const char *txt, const uint64_t size)
 {
-     ctx->ctx_blks = malloc(ctx->ctx_blen);
-     if (NULL == ctx->ctx_blks)
-	  return;
-     memset(ctx->ctx_blks, 0, ctx->ctx_blen);
-     memcpy(ctx->ctx_blks, txt, size);
+     chnk_size(ctx, size);
+     ctx->ctx_chnk = malloc(ctx->ctx_clen * sizeof(struct sha2_chnk));
+     if (errl = __LINE__, NULL == ctx->ctx_chnk)
+	  goto eror;
 
-     uint32_t extr = 128;
-     void *exby = (void *)((char *)ctx->ctx_blks + size - 1);
-     memcpy(exby, &extr, sizeof extr);
+     for (uint32_t i = 0; i < ctx->ctx_clen; ++i) {
+	  memcpy((struct sha2_chnk *)ctx->ctx_chnk + i,
+		 txt,
+		 (i != ctx->ctx_clen - 1)?(56):(size - 56 * i));
+     }
+     return true;
+eror:
+     eror_hndl(__FUNCTION__, __LINE__, errno);
+     return false;
 }
 
 int main(void)
 {
-     char text[] = "SAHAK";
      /* the byte for '\0' is considered
       * as the additional bit space
       */
+     char text[] = "SAHAK";
      uint64_t tsiz = sizeof text;
 
-     conv_blks(&ushactx, text, tsiz);
-     init_blks(&ushactx, text, tsiz);
+     ushactx.ctx_fret = chnk_init(&ushactx, text, tsiz);
+     if (errl = __LINE__, false == ushactx.ctx_fret)
+	  goto eror;
 
-     prnt_bits(ushactx.ctx_blks, ushactx.ctx_blen);
+     prnt_bits(ushactx.ctx_chnk, ushactx.ctx_clen * sizeof *ushactx.ctx_chnk);
 
      return EXIT_SUCCESS;
+eror:
+     eror_hndl(__FUNCTION__, __LINE__, errno);
+     return EXIT_FAILURE;
 }
