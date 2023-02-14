@@ -77,7 +77,7 @@ static bool chnk_init(struct usha_ctx *ctx, const char *txt, const uint64_t size
       * 64 bits in the last 512-bit block is reserved for the len
       * of the text (excluding '\0') in bits.
       */
-     uint64_t tbsz = (size - 1) * 8;
+     uint64_t tbsz = htobe64((size - 1) * 8);
      exby = (struct sha2_chnk *)ctx->ctx_chnk + ctx->ctx_clen;
      exby = (void *)((char *)exby -
 		     48 * sizeof(uint32_t) -
@@ -88,6 +88,25 @@ static bool chnk_init(struct usha_ctx *ctx, const char *txt, const uint64_t size
 eror:
      eror_hndl(__FUNCTION__, __LINE__, errno);
      return false;
+}
+
+static void chnk_work(struct usha_ctx *ctx)
+{
+     uint32_t *wsch = NULL;
+     for (uint32_t i = 0; i < ctx->ctx_clen; ++i) {
+	  wsch = (uint32_t *)((struct sha2_chnk *)ctx->ctx_chnk + i);
+
+	  for (uint8_t j = 0; j < 16; ++j) {
+	       wsch[j] = htobe32(wsch[j]);
+	  }
+	  for (uint8_t j = 16; j < WSCHEDLNUM; ++j) {
+	       wsch[j]  = 0;
+	       wsch[j] += wsch[j-16];
+	       wsch[j] += wsch[j-7];
+	       wsch[j] += sigm_fun0(wsch[j-15]);
+	       wsch[j] += sigm_fun1(wsch[j-2]);
+	  }
+     }
 }
 
 int main(void)
@@ -102,8 +121,9 @@ int main(void)
      if (errl = __LINE__, false == ushactx.ctx_fret)
 	  goto eror;
 
-     prnt_bits(ushactx.ctx_chnk, ushactx.ctx_clen * sizeof *ushactx.ctx_chnk);
+     chnk_work(&ushactx);
 
+     prnt_bits(ushactx.ctx_chnk, ushactx.ctx_clen * sizeof *ushactx.ctx_chnk);
      return EXIT_SUCCESS;
 eror:
      eror_hndl(__FUNCTION__, __LINE__, errno);
