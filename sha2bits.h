@@ -27,15 +27,15 @@ static inline uint32_t summ_fun1(const uint32_t inpt)
      return bits_rotr(inpt, 6) ^ bits_rotr(inpt, 11) ^ bits_rotr(inpt, 25);
 }
 
-static inline uint32_t choi_func(const struct usha_ctx *ctx)
+static inline uint32_t choi_func(const uint32_t *work)
 {
-     return (ctx->ctx_hash[4] & ctx->ctx_hash[5]) ^
-	   (~ctx->ctx_hash[4] & ctx->ctx_hash[6]);
+     return (work[4] & work[5]) ^
+	   (~work[4] & work[6]);
 }
 
-static inline uint32_t majr_func(const struct usha_ctx *ctx)
+static inline uint32_t majr_func(const uint32_t *work)
 {
-     return (ctx->ctx_hash[0] & ctx->ctx_hash[1]) ^
-	  (ctx->ctx_hash[0] & ctx->ctx_hash[2]) ^
-	  (ctx->ctx_hash[1] & ctx->ctx_hash[2]);
+     return (work[0] & work[1]) ^
+	  (work[0] & work[2]) ^
+	  (work[1] & work[2]);
 }
