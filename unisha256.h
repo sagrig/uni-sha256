@@ -10,8 +10,12 @@ struct sha2_chnk {
 
 struct usha_ctx {
      uint32_t          ctx_hash[HASHVALNUM];
+     FILE             *ctx_file;
+     char             *ctx_buff;
      struct sha2_chnk *ctx_chnk;
+     size_t            ctx_bsiz;
      uint64_t          ctx_clen;
+     int32_t           ctx_eror;
      bool              ctx_fret;
 };
 
