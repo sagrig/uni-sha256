@@ -1,8 +1,6 @@
 #define _GNU_SOURCE
 
-#include <errno.h>
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -13,31 +11,14 @@
 static struct usha_ctx ushactx = {0};
 static uint16_t errl = 0;
 
-/*
-static void prnt_bits(const void *txt, const uint64_t size)
-{
-     unsigned char *byte = (unsigned char *)txt;
-     for (uint64_t i = 0; i < size; ++i) {
-	  if (0 == (i % 4))
-	       printf("\n");
-
-	  for (uint8_t j = 8; j > 0; --j) {
-	       printf("%d", 1 & (byte[i] >> (j - 1)));
-	  }
-	  printf(" ");
-     }
-     printf("\n");
-}
-*/
-
-static void chnk_size(struct usha_ctx *ctx, const uint64_t size)
+static void chnk_size(struct usha_ctx *ctx)
 {
      /*
       * total number of bytes
       * we add +1 to the size because of the
       * additional 1 bit from the algorithm
       */
-     ctx->ctx_clen = size;
+     ctx->ctx_clen = ctx->ctx_bsiz;
 
      /*
       * following the equation:
@@ -52,9 +33,13 @@ static void chnk_size(struct usha_ctx *ctx, const uint64_t size)
      ctx->ctx_clen /= 56;
 }
 
+/*
+* allocate memory for 512-bit size chunks.
+* the num of chunks is calculated in the chnk_size() method
+*/
 static bool chnk_init(struct usha_ctx *ctx)
 {
-     chnk_size(ctx, ctx->ctx_bsiz);
+     chnk_size(ctx);
      ctx->ctx_chnk = malloc(ctx->ctx_clen * sizeof(struct sha2_chnk));
      if (errl = __LINE__, NULL == ctx->ctx_chnk)
 	  goto eror;
@@ -88,7 +73,10 @@ eror:
      return false;
 }
 
-
+/*
+ * the main function that does all sha256 calculation
+ * using bitwise operators
+ */
 static void chnk_work(struct usha_ctx *ctx)
 {
      uint32_t *wsch = NULL;
@@ -160,9 +148,12 @@ static void prnt_hash(const struct usha_ctx *ctx)
      printf("\n");
 }
 
-static bool read_file(struct usha_ctx *ctx)
+/*
+ * read the input file contents and store into the program's buffer
+ */
+static bool read_file(struct usha_ctx *ctx, char fnam[])
 {
-     ctx->ctx_file = fopen("./input", "r");
+     ctx->ctx_file = fopen(fnam, "r");
      if (errl = __LINE__, NULL == ctx->ctx_file)
 	  goto eror;
 
@@ -200,12 +191,23 @@ eror:
      return false;
 }
 
-int main(void)
+/*
+ * the main function receives as parameter the input file name
+*/
+int main(int argc, char *argv[])
 {
+     /*
+      * note: the [0] arg is considered the program name
+      */
+     if (argc != 2) {
+	  printf("err! expected num of args is 1!\n");
+	  goto eror;
+     }
+
      /* the byte for '\0' is considered
       * as the additional bit space
       */
-     ushactx.ctx_fret = read_file(&ushactx);
+     ushactx.ctx_fret = read_file(&ushactx, argv[1]);
      if (errl = __LINE__, false == ushactx.ctx_fret)
 	  goto eror;
 
@@ -215,9 +217,6 @@ int main(void)
 
      hash_init(&ushactx);
      chnk_work(&ushactx);
-
-     //   prnt_bits(ushactx.ctx_chnk, ushactx.ctx_clen * sizeof *ushactx.ctx_chnk);
-
      prnt_hash(&ushactx);
 
      exit(EXIT_SUCCESS);
