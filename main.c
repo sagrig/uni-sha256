@@ -13,6 +13,7 @@
 static struct usha_ctx ushactx = {0};
 static uint16_t errl = 0;
 
+/*
 static void prnt_bits(const void *txt, const uint64_t size)
 {
      unsigned char *byte = (unsigned char *)txt;
@@ -27,7 +28,7 @@ static void prnt_bits(const void *txt, const uint64_t size)
      }
      printf("\n");
 }
-
+*/
 
 static void chnk_size(struct usha_ctx *ctx, const uint64_t size)
 {
@@ -51,22 +52,22 @@ static void chnk_size(struct usha_ctx *ctx, const uint64_t size)
      ctx->ctx_clen /= 56;
 }
 
-static bool chnk_init(struct usha_ctx *ctx, const char *txt, const uint64_t size)
+static bool chnk_init(struct usha_ctx *ctx)
 {
-     chnk_size(ctx, size);
+     chnk_size(ctx, ctx->ctx_bsiz);
      ctx->ctx_chnk = malloc(ctx->ctx_clen * sizeof(struct sha2_chnk));
      if (errl = __LINE__, NULL == ctx->ctx_chnk)
 	  goto eror;
 
      memset(ctx->ctx_chnk, 0, ctx->ctx_clen * sizeof(struct sha2_chnk));
-     memcpy(ctx->ctx_chnk, txt, size);
+     memcpy(ctx->ctx_chnk, ctx->ctx_buff, ctx->ctx_bsiz);
 
      /*
       * Adding the extra bit so that L + 1 + K = 448 mod 512,
       * where L, K - length of the text (excluding '\0'), and
       * number of padded 0s.
       */
-     void *exby = (void *)((char *)ctx->ctx_chnk + size - 1);
+     void *exby = (void *)((char *)ctx->ctx_chnk + ctx->ctx_bsiz - 1);
      uint8_t addb = 128;
      memcpy(exby, &addb, 1);
 
@@ -74,7 +75,7 @@ static bool chnk_init(struct usha_ctx *ctx, const char *txt, const uint64_t size
       * 64 bits in the last 512-bit block is reserved for the len
       * of the text (excluding '\0') in bits.
       */
-     uint64_t tbsz = htobe64((size - 1) * 8);
+     uint64_t tbsz = htobe64((ctx->ctx_bsiz - 1) * 8);
      exby = (struct sha2_chnk *)ctx->ctx_chnk + ctx->ctx_clen;
      exby = (void *)((char *)exby -
 		     48 * sizeof(uint32_t) -
@@ -83,7 +84,7 @@ static bool chnk_init(struct usha_ctx *ctx, const char *txt, const uint64_t size
 
      return true;
 eror:
-     eror_hndl(__FUNCTION__, __LINE__, errno);
+     eror_hndl(__FUNCTION__, errl, errno);
      return false;
 }
 
@@ -151,9 +152,52 @@ static void hash_init(struct usha_ctx *ctx)
      ctx->ctx_hash[7] = 0x5be0cd19;
 }
 
-static void sha2_apnd(struct usha_ctx *ctx)
+static void prnt_hash(const struct usha_ctx *ctx)
 {
-     (void)ctx;
+     for (uint8_t i = 0; i < HASHVALNUM; ++i) {
+	  printf("%08x", ctx->ctx_hash[i]);
+     }
+     printf("\n");
+}
+
+static bool read_file(struct usha_ctx *ctx)
+{
+     ctx->ctx_file = fopen("./input", "r");
+     if (errl = __LINE__, NULL == ctx->ctx_file)
+	  goto eror;
+
+     ctx->ctx_eror = fseek(ctx->ctx_file, 0L, SEEK_END);
+     if (errl = __LINE__, -1 == ctx->ctx_eror)
+	  goto eror;
+
+     ctx->ctx_bsiz = ftell(ctx->ctx_file);
+     if (0 == ctx->ctx_bsiz) {
+	  printf("err! no chars aren't expected!\n");
+	  goto eror;
+     }
+
+     ctx->ctx_bsiz += 1;
+     ctx->ctx_buff = malloc(ctx->ctx_bsiz);
+     if (errl = __LINE__, NULL == ctx->ctx_buff)
+	  goto eror;
+
+     ctx->ctx_eror = fseek(ctx->ctx_file, 0L, SEEK_SET);
+     if (errl = __LINE__, -1 == ctx->ctx_eror)
+	  goto eror;
+
+     ctx->ctx_bsiz = fread(ctx->ctx_buff, sizeof *ctx->ctx_buff,
+			   ctx->ctx_bsiz - 1, ctx->ctx_file);
+     if (errl = __LINE__, 0 == ctx->ctx_bsiz) {
+	  printf("err! an error occured on file read!\n");
+	  goto eror;
+     }
+     ctx->ctx_bsiz += 1;
+     ctx->ctx_buff[ctx->ctx_bsiz] = '\0';
+
+     return true;
+eror:
+     eror_hndl(__FUNCTION__, errl, errno);
+     return false;
 }
 
 int main(void)
@@ -161,21 +205,23 @@ int main(void)
      /* the byte for '\0' is considered
       * as the additional bit space
       */
-     char text[] = "SAHAK";
-     uint64_t tsiz = sizeof text;
+     ushactx.ctx_fret = read_file(&ushactx);
+     if (errl = __LINE__, false == ushactx.ctx_fret)
+	  goto eror;
 
-     ushactx.ctx_fret = chnk_init(&ushactx, text, tsiz);
+     ushactx.ctx_fret = chnk_init(&ushactx);
      if (errl = __LINE__, false == ushactx.ctx_fret)
 	  goto eror;
 
      hash_init(&ushactx);
      chnk_work(&ushactx);
-     sha2_apnd(&ushactx);
 
-     prnt_bits(ushactx.ctx_chnk, ushactx.ctx_clen * sizeof *ushactx.ctx_chnk);
+     //   prnt_bits(ushactx.ctx_chnk, ushactx.ctx_clen * sizeof *ushactx.ctx_chnk);
 
-     return EXIT_SUCCESS;
+     prnt_hash(&ushactx);
+
+     exit(EXIT_SUCCESS);
 eror:
-     eror_hndl(__FUNCTION__, __LINE__, errno);
-     return EXIT_FAILURE;
+     eror_hndl(__FUNCTION__, errl, errno);
+     exit(EXIT_FAILURE);
 }
