@@ -3,7 +3,7 @@
 !\.gitignore
 !common
 !makefile
-
+!README.md
 
 !*.c
 !*.h
