@@ -8,6 +8,7 @@ struct sha2_chnk {
      uint32_t chnk_word[WSCHEDLNUM];
 };
 
+
 struct usha_ctx {
      uint32_t          ctx_hash[HASHVALNUM];
      FILE             *ctx_file;
@@ -17,7 +18,9 @@ struct usha_ctx {
      uint64_t          ctx_clen;
      int32_t           ctx_eror;
      bool              ctx_fret;
+     char              ctx_padd[3];
 };
+
 
 static const uint32_t kval[] = {
      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
