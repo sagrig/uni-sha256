@@ -13,3 +13,8 @@ The binary is compiled using GNU Make with the command:
 ```
 make
 ```
+
+For more information, execute:
+```
+make help
+```
