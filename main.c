@@ -29,12 +29,29 @@ static void chnk_size(struct usha_ctx *ctx)
       * L + 1 + K = 448 mod 512
       */
      uint64_t calc = ctx->ctx_clen + 8;
-     calc %= 64;
+     calc %= WSCHEDLBUF;
      calc  = !!calc?
-	  (64 - calc):
+	  (WSCHEDLBUF - calc):
 	  0;
      ctx->ctx_clen += calc;
      ctx->ctx_clen /= 56;
+}
+
+static void copy_btoc(struct usha_ctx *ctx)
+{
+     for (uint64_t i = 0; i < ctx->ctx_clen; ++i) {
+	  ctx->ctx_coff = i;
+	  if (WSCHEDLBUF * (i + 1) >= ctx->ctx_bsiz) {
+	       memcpy(ctx->ctx_chnk + i,
+		      ctx->ctx_buff + (WSCHEDLBUF * i),
+		      ctx->ctx_bsiz - (WSCHEDLBUF * i));
+	       break;
+	  } else {
+	       memcpy(ctx->ctx_chnk + i,
+		      ctx->ctx_buff + (WSCHEDLBUF * i),
+		      WSCHEDLBUF);
+	  }
+     }
 }
 
 /*
@@ -49,34 +66,21 @@ static bool chnk_init(struct usha_ctx *ctx)
 	  goto eror;
 
      memset(ctx->ctx_chnk, 0, ctx->ctx_clen * sizeof(struct sha2_chnk));
-
-     uint32_t coff = 0;
-     for (uint64_t i = 0; i < ctx->ctx_clen; ++i) {
-	  coff = i;
-	  if (64 * (i + 1) >= ctx->ctx_bsiz) {
-	       memcpy(ctx->ctx_chnk + i,
-		      ctx->ctx_buff + (64 * i),
-		      ctx->ctx_bsiz - (64 * i));
-	       break;
-	  } else {
-	       memcpy(ctx->ctx_chnk + i,
-		      ctx->ctx_buff + (64 * i),
-		      64);
-	  }
-     }
+     copy_btoc(ctx);
 
      /*
       * Adding the extra bit so that L + 1 + K = 448 mod 512,
       * where L, K - length of the text (excluding '\0'), and
       * number of padded 0s.
       */
-     void *exby = ctx->ctx_chnk + coff;
-     exby = (void *)((char *)exby + ctx->ctx_bsiz - 1 - (64 * coff));
+     void *exby = ctx->ctx_chnk + ctx->ctx_coff;
+     exby = (void *)((char *)exby + ctx->ctx_bsiz - 1 -
+		     (WSCHEDLBUF * ctx->ctx_coff));
      uint8_t addb = 128;
      memcpy(exby, &addb, sizeof addb);
 
      /*
-      * 64 bits in the last 512-bit block is reserved for the len
+      * Last 64 bits in the last 512-bit block is reserved for the len
       * of the text (excluding '\0') in bits.
       */
      uint64_t tbsz = htobe64((ctx->ctx_bsiz - 1) * CHAR_BIT);
