@@ -29,6 +29,7 @@ LDFLAGS		+=
 LDFLAGS		+= -L .
 LDFLAGS		+= -Wl,--build-id=0x$(shell git rev-parse HEAD)
 
+.PHONY: all
 all: $(bin)
 	@:
 
