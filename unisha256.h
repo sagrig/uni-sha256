@@ -25,7 +25,6 @@ struct usha_ctx {
      uint64_t          ctx_coff;
      int32_t           ctx_eror;
      bool              ctx_fret;
-     char              ctx_padd[3];
 };
 
 
