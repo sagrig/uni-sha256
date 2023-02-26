@@ -1,8 +1,13 @@
 #ifndef UNISHA256_H
 #define UNISHA256_H
 
-#define WSCHEDLNUM 64
 #define HASHVALNUM 8
+#define MAXARGSNUM 2
+#define WSCHEDLNUM 64
+
+#ifndef CHAR_BIT
+#define CHAR_BIT 8
+#endif  /* CHAR_BIT */
 
 struct sha2_chnk {
      uint32_t chnk_word[WSCHEDLNUM];
