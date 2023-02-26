@@ -1,9 +1,10 @@
 #ifndef UNISHA256_H
 #define UNISHA256_H
 
-#define HASHVALNUM 8
-#define MAXARGSNUM 2
-#define WSCHEDLNUM 64
+#define HASHVALNUM 8  /* number of hash values */
+#define MAXARGSNUM 2  /* number of expected arguments (including prog name) */
+#define WSCHEDLBUF 64 /* number of bytes of first 16 schedulers per chunk */
+#define WSCHEDLNUM 64 /* number of schedulers */
 
 #ifndef CHAR_BIT
 #define CHAR_BIT 8
@@ -21,6 +22,7 @@ struct usha_ctx {
      struct sha2_chnk *ctx_chnk;
      size_t            ctx_bsiz;
      uint64_t          ctx_clen;
+     uint64_t          ctx_coff;
      int32_t           ctx_eror;
      bool              ctx_fret;
      char              ctx_padd[3];
