@@ -11,6 +11,10 @@
 static struct usha_ctx ushactx = {0};
 static uint16_t errl = 0;
 
+/*
+ * calculate the number of 512-bit chunks based on
+ * the length of the input data
+ */
 static void chnk_size(struct usha_ctx *ctx)
 {
      /*
@@ -45,23 +49,38 @@ static bool chnk_init(struct usha_ctx *ctx)
 	  goto eror;
 
      memset(ctx->ctx_chnk, 0, ctx->ctx_clen * sizeof(struct sha2_chnk));
-     memcpy(ctx->ctx_chnk, ctx->ctx_buff, ctx->ctx_bsiz);
+
+     uint32_t coff = 0;
+     for (uint64_t i = 0; i < ctx->ctx_clen; ++i) {
+	  coff = i;
+	  if (64 * (i + 1) >= ctx->ctx_bsiz) {
+	       memcpy(ctx->ctx_chnk + i,
+		      ctx->ctx_buff + (64 * i),
+		      ctx->ctx_bsiz - (64 * i));
+	       break;
+	  } else {
+	       memcpy(ctx->ctx_chnk + i,
+		      ctx->ctx_buff + (64 * i),
+		      64);
+	  }
+     }
 
      /*
       * Adding the extra bit so that L + 1 + K = 448 mod 512,
       * where L, K - length of the text (excluding '\0'), and
       * number of padded 0s.
       */
-     void *exby = (void *)((char *)ctx->ctx_chnk + ctx->ctx_bsiz - 1);
+     void *exby = ctx->ctx_chnk + coff;
+     exby = (void *)((char *)exby + ctx->ctx_bsiz - 1 - (64 * coff));
      uint8_t addb = 128;
-     memcpy(exby, &addb, 1);
+     memcpy(exby, &addb, sizeof addb);
 
      /*
       * 64 bits in the last 512-bit block is reserved for the len
       * of the text (excluding '\0') in bits.
       */
-     uint64_t tbsz = htobe64((ctx->ctx_bsiz - 1) * 8);
-     exby = (struct sha2_chnk *)ctx->ctx_chnk + ctx->ctx_clen;
+     uint64_t tbsz = htobe64((ctx->ctx_bsiz - 1) * CHAR_BIT);
+     exby = ctx->ctx_chnk + ctx->ctx_clen;
      exby = (void *)((char *)exby -
 		     48 * sizeof(uint32_t) -
 		     sizeof tbsz);
@@ -82,10 +101,10 @@ static void chnk_work(struct usha_ctx *ctx)
      uint32_t *wsch = NULL;
      uint32_t tmp1 = 0;
      uint32_t tmp2 = 0;
-     uint32_t work[8];
+     uint32_t work[HASHVALNUM];
 
-     for (uint32_t i = 0; i < ctx->ctx_clen; ++i) {
-	  wsch = (uint32_t *)((struct sha2_chnk *)ctx->ctx_chnk + i);
+     for (uint64_t i = 0; i < ctx->ctx_clen; ++i) {
+	  wsch = (uint32_t *)(ctx->ctx_chnk + i);
 
 	  for (uint8_t j = 0; j < 16; ++j) {
 	       wsch[j] = htobe32(wsch[j]);
@@ -97,11 +116,9 @@ static void chnk_work(struct usha_ctx *ctx)
 	       wsch[j] += sigm_fun0(wsch[j-15]);
 	       wsch[j] += sigm_fun1(wsch[j-2]);
 	  }
-
-	  for (uint8_t j = 0; j < 8; ++j) {
+	  for (uint8_t j = 0; j < HASHVALNUM; ++j) {
 	       work[j] = ctx->ctx_hash[j];
 	  }
-
 	  for (uint8_t j = 0; j < WSCHEDLNUM; ++j) {
 	       tmp1  = work[7];            // [h]
 	       tmp1 += summ_fun1(work[4]); // pass [e]
@@ -121,8 +138,7 @@ static void chnk_work(struct usha_ctx *ctx)
 	       work[1] = work[0];        // [b] = [a]
 	       work[0] = tmp1 + tmp2;    // [a] = [t1] + [t2]
 	  }
-
-	  for (uint8_t j = 0; j < 8; ++j) {
+	  for (uint8_t j = 0; j < HASHVALNUM; ++j) {
 	       ctx->ctx_hash[j] += work[j];
 	  }
      }
@@ -163,7 +179,7 @@ static bool read_file(struct usha_ctx *ctx, char fnam[])
 
      ctx->ctx_bsiz = ftell(ctx->ctx_file);
      if (0 == ctx->ctx_bsiz) {
-	  printf("err! no chars aren't expected!\n");
+	  printf("err! no input isn't expected!\n");
 	  goto eror;
      }
 
@@ -199,7 +215,7 @@ int main(int argc, char *argv[])
      /*
       * note: the [0] arg is considered the program name
       */
-     if (argc != 2) {
+     if (argc != MAXARGSNUM) {
 	  printf("err! expected num of args is 1!\n");
 	  goto eror;
      }
